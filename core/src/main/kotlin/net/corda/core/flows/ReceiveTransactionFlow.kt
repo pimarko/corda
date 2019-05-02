@@ -2,6 +2,7 @@ package net.corda.core.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.*
+import net.corda.core.internal.FetchDataFlow
 import net.corda.core.internal.ResolveTransactionsFlow
 import net.corda.core.internal.checkParameterHash
 import net.corda.core.internal.pushToLoggingContext
@@ -44,9 +45,12 @@ open class ReceiveTransactionFlow @JvmOverloads constructor(private val otherSid
             it.pushToLoggingContext()
             logger.info("Received transaction acknowledgement request from party ${otherSideSession.counterparty}.")
             checkParameterHash(it.networkParametersHash)
-            subFlow(ResolveTransactionsFlow(it, otherSideSession, statesToRecord))
-            logger.info("Transaction dependencies resolution completed.")
+            // Uncommented line below this comment removes walking the chain from the peers
+            //subFlow(ResolveTransactionsFlow(it, otherSideSession, statesToRecord))
+            //logger.info("Transaction dependencies resolution completed.")
+            logger.info("Peers are not performing the transaction dependencies resolution.")
             try {
+                // Instead of the peers verifying the transaction, we should remove it alltogether
                 it.verify(serviceHub, checkSufficientSignatures)
                 it
             } catch (e: Exception) {
@@ -54,6 +58,8 @@ open class ReceiveTransactionFlow @JvmOverloads constructor(private val otherSid
                 throw e
             }
         }
+        // Do not let the other side infinitely wait for the Request.End
+        otherSideSession.send(FetchDataFlow.Request.End)
         if (checkSufficientSignatures) {
             // We should only send a transaction to the vault for processing if we did in fact fully verify it, and
             // there are no missing signatures. We don't want partly signed stuff in the vault.
