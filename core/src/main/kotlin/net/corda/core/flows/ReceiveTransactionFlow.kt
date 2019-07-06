@@ -48,6 +48,7 @@ open class ReceiveTransactionFlow @JvmOverloads constructor(private val otherSid
             // Uncommented line below this comment removes walking the chain from the peers
             //subFlow(ResolveTransactionsFlow(it, otherSideSession, statesToRecord))
             //logger.info("Transaction dependencies resolution completed.")
+            serviceHub.recordTransactions(StatesToRecord.ALL_VISIBLE, listOf(it))
             logger.info("Peers are not performing the transaction dependencies resolution.")
             try {
                 // Instead of the peers verifying the transaction, we should remove it alltogether
