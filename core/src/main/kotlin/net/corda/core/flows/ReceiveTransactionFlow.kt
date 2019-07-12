@@ -41,27 +41,37 @@ open class ReceiveTransactionFlow @JvmOverloads constructor(private val otherSid
         } else {
             logger.trace { "Receiving a transaction (but without checking the signatures) from ${otherSideSession.counterparty}" }
         }
+        var endSession = false
         val stx = otherSideSession.receive<SignedTransaction>().unwrap {
             it.pushToLoggingContext()
             logger.info("Received transaction acknowledgement request from party ${otherSideSession.counterparty}.")
             checkParameterHash(it.networkParametersHash)
-            // Uncommented line below this comment removes walking the chain from the peers
-            //subFlow(ResolveTransactionsFlow(it, otherSideSession, statesToRecord))
-            //logger.info("Transaction dependencies resolution completed.")
-            serviceHub.recordTransactions(StatesToRecord.ALL_VISIBLE, listOf(it))
-            logger.info("Peers are not performing the transaction dependencies resolution.")
+
+            // Lines below this comment remove walking the chain from the peers in case the notary exists and is validating
+            val isValidatingNotary = serviceHub.networkMapCache.isValidatingNotary(it.notary!!)
+            if (!isValidatingNotary) {
+                subFlow(ResolveTransactionsFlow(it, otherSideSession, statesToRecord))
+                logger.info("Transaction dependencies resolution completed.")
+            } else {
+                endSession = true
+                logger.info("Peers are not performing the transaction dependencies resolution.")
+            }
             try {
-                // Instead of the peers verifying the transaction, we should remove it alltogether
                 it.verify(serviceHub, checkSufficientSignatures)
+                // No need to record as we only do it after it has reached the finalityFlow (StatesToRecord.ONLY_RELEVANT)
+                //serviceHub.recordTransactions(statesToRecord, listOf(it))
                 it
             } catch (e: Exception) {
                 logger.warn("Transaction verification failed.")
                 throw e
             }
         }
-        // Do not let the other side infinitely wait for the Request.End
-        otherSideSession.send(FetchDataFlow.Request.End)
+        // Do not let the other side infinitely wait for the Request.End in case there is no walking the chain
+        if (endSession) {
+            otherSideSession.send(FetchDataFlow.Request.End)
+        }
         if (checkSufficientSignatures) {
+            // We end up here after the finality flow (i.e receiveFinalityFlow)
             // We should only send a transaction to the vault for processing if we did in fact fully verify it, and
             // there are no missing signatures. We don't want partly signed stuff in the vault.
             checkBeforeRecording(stx)
