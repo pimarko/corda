@@ -225,7 +225,10 @@ abstract class SignTransactionFlow @JvmOverloads constructor(val otherSideSessio
         // Check the signatures which have already been provided. Usually the Initiators and possibly an Oracle's.
         checkSignatures(stx)
         // We need to verify the transaction before we sign it
-        stx.tx.toLedgerTransaction(serviceHub).verify()
+        val isValidatingNotary = serviceHub.networkMapCache.isValidatingNotary(stx.notary!!)
+        if (!isValidatingNotary) {
+            stx.tx.toLedgerTransaction(serviceHub).verify()
+        }
         // Perform some custom verification over the transaction.
         try {
             checkTransaction(stx)
