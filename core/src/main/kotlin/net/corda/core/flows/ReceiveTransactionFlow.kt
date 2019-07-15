@@ -60,9 +60,6 @@ open class ReceiveTransactionFlow @JvmOverloads constructor(private val otherSid
                 // We are verifying only if there is a non-validating notary
                 if (!isValidatingNotary) {
                     it.verify(serviceHub, checkSufficientSignatures)
-                } else {
-                    // We need to record as the notary makes sure all was correct
-                    serviceHub.recordTransactions(StatesToRecord.ALL_VISIBLE, listOf(it))
                 }
                 it
             } catch (e: Exception) {
