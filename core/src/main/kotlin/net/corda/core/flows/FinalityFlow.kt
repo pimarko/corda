@@ -208,9 +208,11 @@ class FinalityFlow private constructor(val transaction: SignedTransaction,
     }
 
     private fun needsNotarySignature(stx: SignedTransaction): Boolean {
-        val wtx = stx.tx
-        val needsNotarisation = wtx.inputs.isNotEmpty() || wtx.references.isNotEmpty() || wtx.timeWindow != null
-        return needsNotarisation && hasNoNotarySignature(stx)
+        // Notary needs to sign a transaction even if it is an issuance one due to the attestation policy
+        //val wtx = stx.tx
+        //val needsNotarisation = wtx.inputs.isNotEmpty() || wtx.references.isNotEmpty() || wtx.timeWindow != null
+        //return needsNotarisation && hasNoNotarySignature(stx)
+        return hasNoNotarySignature(stx)
     }
 
     private fun hasNoNotarySignature(stx: SignedTransaction): Boolean {
